@@ -8,6 +8,18 @@
 #include <mach/platform.h>
 #include <linux/miscdevice.h>
 
+/*#include <linux/miscdevice.h>
+
+struct miscdevice {
+    int minor;                    		// 次设备号（MISC_DYNAMIC_MINOR 为自动分配）
+    const char *name;             		// 在 /dev 下创建设备节点名
+    const struct file_operations *fops; // 文件操作结构体
+    struct list_head list;
+    struct device *parent;
+    struct device *this_device;
+    const struct attribute_group **groups;
+};
+*/
 static struct gpio leds_gpios[] = {
 	{ PAD_GPIO_E+13, GPIOF_OUT_INIT_HIGH, "D7 LED" }, /* default to OFF */
 	{ PAD_GPIO_C+17, GPIOF_OUT_INIT_HIGH, "D8 LED" }, /* default to OFF */
@@ -63,18 +75,26 @@ static struct file_operations myled_fops={
 	.open = myled_open,
 	.release = myled_release,
 	.write = &myled_write,
+	//myled_write 是一个函数名，本质上就是函数指针，自动会退化为指针类型；
+	//&myled_write 是函数地址，两者在赋值时效果一样；
+	//函数指针的赋值时，&函数名 和 函数名 是等价的。
 };
 
 static struct miscdevice myled_misc={
 	.minor=MISC_DYNAMIC_MINOR,
 	.name="myled",
 	.fops=&myled_fops,
+	//这里的.fops是一个结构体指针，myled_fops是一个结构体变量名，
+	//他的本质上不是一个指针
 };
 
 static int __init myled_init(void)
 {
 	int rt;
-
+	//使用混杂设备就可以放弃定义struct cdev、申请设备号（register_chrdev_region\alloc_chrdev_region）
+	//、初始化cdev（cdev_init）、将cdev加入到内核（cdev_add）、
+	//自动创建设备号（class_create、device_create）
+	
 	/*1.混杂设备的注册 */
 	rt = misc_register(&myled_misc);
 	if(rt < 0)
